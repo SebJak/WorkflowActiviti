@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definitions" targetNamespace="http://activiti.org/bpmn20"
+	xmlns:activiti="http://activiti.org/bpmn" xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+	<process id="dayOffRequest" name="Day off request">
+
+		<startEvent id="theStart" activiti:formKey="submitDayOffForm">
+			<extensionElements>
+				<activiti:formProperty id="numberDays" name="Number of days" />
+				<activiti:formProperty id="startDate"
+					name="Starting date days off format: yyyy-mm-dd" />
+				<activiti:formProperty id="reason"
+					name="The message of reason take days off" />
+			</extensionElements>
+		</startEvent>
+
+		<sequenceFlow targetRef="managerResponse" sourceRef="theStart" />
+
+
+		<userTask id="managerResponse" name="Response for day off request"
+			activiti:candidateGroups="manager" activiti:formKey="managerResponseForm">
+			<extensionElements>
+				<activiti:formProperty id="message"
+					name="The message of manager to employee" />
+				<activiti:formProperty id="accepted"
+					name="Response of manager if true day of is accepted" />
+			</extensionElements>
+		</userTask>
+
+		<sequenceFlow id="notificationEmployee" sourceRef="managerResponse"
+			targetRef="adjustDayOff">
+			<conditionExpression xsi:type="tFormalExpression">${accepted ==
+				'false'}</conditionExpression>
+		</sequenceFlow>
+		
+		<sequenceFlow id="mailNotification" sourceRef="managerResponse"
+			targetRef="emailTaskApprove">
+			<conditionExpression xsi:type="tFormalExpression">${accepted ==
+				'true'}</conditionExpression>
+		</sequenceFlow>
+
+		<userTask id="adjustDayOff" name="Adjust day off request">
+			<extensionElements>
+				<activiti:formProperty id="numberDays" name="Number of days" />
+				<activiti:formProperty id="startDate"
+					name="Starting date days off format: yyyy-mm-dd" />
+				<activiti:formProperty id="reason"
+					name="The message of reason take days off" />
+				<activiti:formProperty id="repeatRequest"
+					name="Send request to manager again?" required="true" />
+			</extensionElements>
+		</userTask>
+		
+		<sequenceFlow id="repeatRequest" sourceRef="adjustDayOff"
+			targetRef="resendRequestDayOff" />
+
+		<exclusiveGateway id="resendRequestDayOff" name="Resend request?" />
+		
+		<sequenceFlow id="checkCondition" sourceRef="resendRequestDayOff"
+			targetRef="managerResponse">
+			<conditionExpression xsi:type="tFormalExpression">${repeatRequest ==
+				'true'}</conditionExpression>
+		</sequenceFlow>
+		
+		<sequenceFlow id="sendMailReject" sourceRef="resendRequestDayOff"
+			targetRef="emailTaskReject">
+			<conditionExpression xsi:type="tFormalExpression">${repeatRequest ==
+				'false'}</conditionExpression>
+		</sequenceFlow>
+
+		<sequenceFlow id="noRepeatRequest" sourceRef="emailTaskReject"
+			targetRef="theEnd">
+		</sequenceFlow>
+		
+
+		<serviceTask id="emailTaskApprove" name="Email task"
+			activiti:type="mail">
+			<extensionElements>
+				<activiti:field name="from" stringValue="info@workflow.org" />
+				<activiti:field name="to" expression="${recipientVariable}" />
+				<activiti:field name="subject"
+					expression="Day off response" />
+				<activiti:field name="text" expression="The manager approved your request day off. Have a nice holiday!
+					The manager leaves message for you: ${message}.
+				" />
+			</extensionElements>
+		</serviceTask>
+		
+		<serviceTask id="emailTaskReject" name="Email task"
+			activiti:type="mail">
+			<extensionElements>
+				<activiti:field name="from" stringValue="info@workflow.org" />
+				<activiti:field name="to" expression="${managerMail}" />
+				<activiti:field name="subject"
+					expression="Day off reject" />
+				<activiti:field name="text" expression="User ${username} rejected his day of request.
+							${username} leaves message: ${reason}.
+				" />
+			</extensionElements>
+		</serviceTask>
+
+		
+		<endEvent id="theEnd" />
+
+	</process>
+
+</definitions>

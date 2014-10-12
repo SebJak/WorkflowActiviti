@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definitions" targetNamespace="http://activiti.org/bpmn20"
+	xmlns:activiti="http://activiti.org/bpmn" xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	
+	<process id="bugReport" name="Bug reporting process">
+	
+		<startEvent id="theStart" activiti:formKey="submitBugReportForm">
+			<extensionElements>
+				<activiti:formProperty id="title"/>
+    			<activiti:formProperty id="project"/>
+    			<activiti:formProperty id="version" />
+    			<activiti:formProperty id="message"/>
+    			<activiti:formProperty id="emailReporter"/>
+    			<activiti:formProperty id="dueDate"/>
+				
+    		</extensionElements>					
+		</startEvent>
+			
+		<sequenceFlow targetRef="updateAndAssign" sourceRef="theStart"/>
+
+		<!-- <sequenceFlow targetRef="acceptAssignment" sourceRef="updateAndAssign"/> -->
+	
+		<userTask id="updateAndAssign" name="Update bug report" activiti:candidateGroups="teamleader" activiti:formKey="updateAndAssignForm">
+			<extensionElements>
+				<activiti:formProperty id="title"/>
+    			<activiti:formProperty id="project"  />
+    			<activiti:formProperty id="version" />
+    			<activiti:formProperty id="message" />
+    			<activiti:formProperty id="targetVersion" />    			
+    			<activiti:formProperty id="priority"/>
+    			<activiti:formProperty id="dueDate"/>
+    			<activiti:formProperty id="developer"/>  
+    			<activiti:formProperty id="emailDeveloper"/>
+    			<activiti:formProperty id="teamleaderName"/>
+    		</extensionElements>			
+		</userTask>		
+		
+		<sequenceFlow targetRef="emailInformDeveloper" sourceRef="updateAndAssign"/>
+		
+		<sequenceFlow targetRef="acceptAssignment" sourceRef="emailInformDeveloper"/>
+		
+		<userTask id="acceptAssignment" name="Accept bug report" activiti:assignee="${developer}" activiti:candidateGroups="employee" activiti:formKey="acceptAssignmentForm">
+			<documentation>
+				A developer accepts a bug report.
+			</documentation>
+			<extensionElements>
+				<activiti:formProperty id="title"/>
+    			<activiti:formProperty id="project" />
+    			<activiti:formProperty id="targetVersion"/>   
+    			<activiti:formProperty id="version"/>
+    			<activiti:formProperty id="summary"/>
+    			<activiti:formProperty id="estimatedTime"/>
+ 			
+    			<activiti:formProperty id="priority"/>
+    			<activiti:formProperty id="developer"/>    			
+    		</extensionElements>			
+		</userTask>
+				
+		<sequenceFlow targetRef="resolveBugReport" sourceRef="acceptAssignment"/>
+		
+		<userTask id="resolveBugReport" name="Resolve bug report"  activiti:assignee="${developer}" activiti:candidateGroups="employee" activiti:formKey="resolveBugReportForm">
+			<extensionElements>
+				<activiti:formProperty id="title"/>
+    			<activiti:formProperty id="project"/>
+    			<activiti:formProperty id="version"/>
+    			<activiti:formProperty id="summary" />
+    			<activiti:formProperty id="targetVersion"/>    			
+    			<activiti:formProperty id="priority"/>
+    			<activiti:formProperty id="resolution" />    			
+    			<activiti:formProperty id="developer"/>  			
+    		</extensionElements>			
+		</userTask>
+		
+		<sequenceFlow targetRef="testFixedBug" sourceRef="resolveBugReport"/>
+		
+		<userTask id="testFixedBug" name="Test the resolution of bug" activiti:assignee="${teamleaderName}" activiti:formKey="testFixedBugForm">
+			<extensionElements>
+				<activiti:formProperty id="title"/>
+    			<activiti:formProperty id="project"  />
+    			<activiti:formProperty id="version" />
+    			<activiti:formProperty id="message" />
+				<activiti:formProperty id="fixed"/>
+    		</extensionElements>			
+		</userTask>	
+		
+		<sequenceFlow id="repeatResolve" sourceRef="testFixedBug"
+			targetRef="notFixedTask">
+			<conditionExpression xsi:type="tFormalExpression">${fixed ==
+				'false'}</conditionExpression>
+		</sequenceFlow>
+		
+		<sequenceFlow id="informReporter" sourceRef="testFixedBug"
+			targetRef="emailInformReporter">
+			<conditionExpression xsi:type="tFormalExpression">${fixed ==
+				'true'}</conditionExpression>
+		</sequenceFlow>
+		
+		<serviceTask id="emailInformReporter" name="Email task"
+			activiti:type="mail">
+			<extensionElements>
+				<activiti:field name="from" stringValue="info@workflow.org" />
+				<activiti:field name="to" expression="${emailReporter}" />
+				<activiti:field name="subject"
+					expression="Problem has resolved" />
+				<activiti:field name="text" expression="The problem which you reported has resolved"/>
+			</extensionElements>
+		</serviceTask>
+		
+		<serviceTask id="notFixedTask" name="Email task"
+			activiti:type="mail">
+			<extensionElements>
+				<activiti:field name="from" stringValue="info@workflow.org" />
+				<activiti:field name="to" expression="${emailDeveloper}" />
+				<activiti:field name="subject"
+					expression="Problem has not resolved" />
+				<activiti:field name="text" expression="Team leader not approve your solution at the project ${project}. Please improve your solution. Team leader leaves message ${message}."/>
+			</extensionElements>
+		</serviceTask>
+		
+		<sequenceFlow targetRef="acceptAssignment" sourceRef="notFixedTask"/>
+		
+		<serviceTask id="emailInformDeveloper" name="Email task"
+			activiti:type="mail">
+			<extensionElements>
+				<activiti:field name="from" stringValue="info@workflow.org" />
+				<activiti:field name="to" expression="${emailDeveloper}" />
+				<activiti:field name="subject"
+					expression="Assign issue" />
+				<activiti:field name="text" expression="Team leader assign you to resolve bug on project ${project}. team leader leave message ${message}."/>
+			</extensionElements>
+		</serviceTask>
+		
+		<sequenceFlow targetRef="theEnd" sourceRef="emailInformReporter"/>
+	
+		<endEvent id="theEnd"/>
+	
+	</process>
+	
+</definitions>
